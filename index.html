@@ -1,0 +1,1125 @@
+<!DOCTYPE html>
+<html lang="es" data-theme="light">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Simulador de Condición</title>
+<script src="https://cdn.jsdelivr.net/npm/canvas-confetti@1.9.3/dist/confetti.browser.min.js"></script>
+<style>
+@import url('https://fonts.googleapis.com/css2?family=Nunito:wght@400;600;700;900&display=swap');
+
+:root {
+  --verde: #006752;
+  --verde-claro: #008f76;
+  --blanco: #ffffff;
+  --bg: #f0f4f3;
+  --card-bg: rgba(255,255,255,0.92);
+  --card-shadow: 0 10px 25px rgba(0,0,0,.08);
+  --text: #111827;
+  --text-soft: #4b5563;
+  --border: #d1d5db;
+  --input-bg: rgba(255,255,255,0.95);
+  --tip-bg: rgba(255,255,255,0.7);
+  --toggle-bg: #e5e7eb;
+  --flash-color: transparent;
+}
+
+[data-theme="dark"] {
+  --bg: #0f1a17;
+  --card-bg: rgba(20,35,30,0.92);
+  --card-shadow: 0 10px 30px rgba(0,0,0,.4);
+  --text: #f0faf7;
+  --text-soft: #9ca3af;
+  --border: #2d4a40;
+  --input-bg: rgba(15,30,25,0.9);
+  --tip-bg: rgba(0,0,0,0.2);
+  --toggle-bg: #1f3a30;
+}
+
+/* ── SPLASH ── */
+#splash {
+  position: fixed; inset: 0;
+  background: white;
+  display: flex; align-items: center; justify-content: center;
+  z-index: 99999;
+  animation: splashFade 3s ease forwards;
+}
+.logo-siglo21 {
+  width: 280px; height: 280px;
+  background-color: var(--verde);
+  position: relative; display: flex; align-items: center; justify-content: center;
+  overflow: hidden; border-radius: 18px;
+  box-shadow: 0 20px 40px rgba(0,0,0,.25);
+  animation: logoEntrada 1.2s ease;
+}
+.logo-siglo21::after {
+  content: ''; position: absolute; top: 0; right: -50px;
+  width: 120px; height: 100%;
+  background-color: var(--verde-claro);
+  transform: skewX(-15deg); z-index: 1;
+}
+.numero {
+  color: white; font-size: 160px; font-weight: 900;
+  letter-spacing: -10px; z-index: 2; position: relative; display: flex;
+  font-family: 'Nunito', sans-serif;
+}
+@keyframes logoEntrada {
+  0%   { transform: scale(.2) rotate(-15deg); opacity: 0; }
+  100% { transform: scale(1) rotate(0deg); opacity: 1; }
+}
+@keyframes splashFade {
+  0%,80% { opacity: 1; }
+  100%   { opacity: 0; visibility: hidden; }
+}
+
+/* ── FONDO ANIMADO ── */
+#bg-canvas {
+  position: fixed; inset: 0; z-index: 0;
+  pointer-events: none; overflow: hidden;
+  background: var(--bg);
+  transition: background 0.6s;
+}
+.bg-logo {
+  position: absolute; display: flex; align-items: center; justify-content: center;
+  overflow: hidden; border-radius: 14px;
+  background-color: var(--verde);
+  opacity: 0;
+  animation: floatLogo linear infinite;
+}
+.bg-logo::after {
+  content: ''; position: absolute; top: 0; right: -18px;
+  width: 40%; height: 100%;
+  background-color: var(--verde-claro);
+  transform: skewX(-15deg); z-index: 1;
+}
+.bg-logo .bg-num {
+  color: white; font-weight: 900; letter-spacing: -3px;
+  z-index: 2; position: relative; font-family: 'Nunito', sans-serif; line-height: 1;
+}
+@keyframes floatLogo {
+  0%   { transform: translateY(110vh) rotate(var(--rot-start)); opacity: 0; }
+  8%   { opacity: var(--max-opacity); }
+  90%  { opacity: var(--max-opacity); }
+  100% { transform: translateY(-20vh) rotate(var(--rot-end)); opacity: 0; }
+}
+
+/* ── FLASH DE FONDO ── */
+#bg-flash {
+  position: fixed; inset: 0; z-index: 0;
+  pointer-events: none;
+  opacity: 0;
+  transition: opacity 0.6s ease;
+}
+#bg-flash.active-ok     { background: rgba(22,163,74,0.18);  opacity: 1; }
+#bg-flash.active-warn   { background: rgba(217,119,6,0.18);  opacity: 1; }
+#bg-flash.active-danger { background: rgba(220,38,38,0.18);  opacity: 1; }
+
+/* ── PULSO ROJO (libre) ── */
+@keyframes pulsarRojo {
+  0%, 100% { box-shadow: 0 0 0 0 rgba(220,38,38,0); }
+  50%       { box-shadow: 0 0 0 18px rgba(220,38,38,0.25); }
+}
+.pulso-rojo { animation: pulsarRojo 1.4s ease infinite; }
+
+/* ── BASE ── */
+input[type=number]::-webkit-outer-spin-button,
+input[type=number]::-webkit-inner-spin-button { -webkit-appearance: none; margin: 0; }
+input[type=number] { -moz-appearance: textfield; }
+
+*, *::before, *::after { box-sizing: border-box; }
+
+body {
+  margin: 0; background: transparent;
+  font-family: 'Nunito', sans-serif;
+  color: var(--text);
+  transition: color 0.3s;
+}
+
+.container {
+  position: relative; z-index: 1;
+  max-width: 900px; margin: auto; padding: 30px 20px 80px;
+}
+
+.card {
+  background: var(--card-bg);
+  backdrop-filter: blur(8px); -webkit-backdrop-filter: blur(8px);
+  border-radius: 20px; padding: 30px; margin-bottom: 20px;
+  box-shadow: var(--card-shadow);
+  transition: background 0.3s, box-shadow 0.3s;
+}
+
+h1 { margin-top: 0; color: var(--text); font-size: 1.8rem; }
+h2 { color: var(--text); }
+.subtitle { color: var(--text-soft); line-height: 1.6; }
+
+/* ── TOGGLE MODO OSCURO ── */
+#dark-toggle {
+  position: fixed; top: 16px; right: 20px; z-index: 100;
+  background: var(--card-bg);
+  backdrop-filter: blur(6px); -webkit-backdrop-filter: blur(6px);
+  border: 1px solid var(--border);
+  border-radius: 50px; padding: 8px 16px;
+  cursor: pointer; font-size: 20px;
+  box-shadow: var(--card-shadow);
+  transition: all 0.3s;
+  display: flex; align-items: center; gap: 8px;
+  color: var(--text);
+}
+#dark-toggle span { font-size: 13px; font-weight: bold; }
+
+/* ── LABELS e INPUTS ── */
+label {
+  display: block; margin-top: 18px; margin-bottom: 7px;
+  font-weight: bold; color: var(--text);
+  transition: color 0.3s;
+}
+
+.input-wrap { position: relative; }
+
+input[type="number"], input[type="text"], select {
+  width: 100%; padding: 14px; border-radius: 12px;
+  border: 2px solid var(--border);
+  background: var(--input-bg);
+  color: var(--text);
+  font-size: 16px;
+  font-family: 'Nunito', sans-serif;
+  transition: border-color 0.25s, background 0.3s, box-shadow 0.25s, color 0.3s;
+  outline: none;
+}
+input[type="text"] { padding-right: 14px; }
+
+input[type="number"]:focus, input[type="text"]:focus, select:focus {
+  border-color: var(--verde);
+  box-shadow: 0 0 0 3px rgba(0,103,82,0.15);
+}
+
+input.nota-baja   { border-color: #dc2626; background: rgba(254,226,226,0.4); }
+input.nota-media  { border-color: #d97706; background: rgba(254,243,199,0.4); }
+input.nota-buena  { border-color: #16a34a; background: rgba(220,252,231,0.4); }
+
+[data-theme="dark"] input.nota-baja  { background: rgba(127,29,29,0.3); }
+[data-theme="dark"] input.nota-media { background: rgba(120,53,15,0.3); }
+[data-theme="dark"] input.nota-buena { background: rgba(20,83,45,0.3); }
+
+.input-badge {
+  position: absolute; right: 12px; top: 50%; transform: translateY(-50%);
+  font-size: 18px; pointer-events: none;
+  opacity: 0; transition: opacity 0.2s;
+}
+.input-badge.visible { opacity: 1; }
+
+/* ── BOTÓN PRINCIPAL ── */
+button.btn-calcular {
+  width: 100%; margin-top: 30px; padding: 16px;
+  border: none; border-radius: 14px;
+  background: var(--verde); color: white;
+  font-size: 17px; cursor: pointer; font-weight: bold;
+  font-family: 'Nunito', sans-serif;
+  transition: background 0.2s, transform 0.1s;
+  box-shadow: 0 4px 15px rgba(0,103,82,0.3);
+}
+button.btn-calcular:hover  { background: var(--verde-claro); }
+button.btn-calcular:active { transform: scale(0.98); }
+
+/* ── BOTÓN RESET ── */
+button.btn-reset {
+  width: 100%; margin-top: 12px; padding: 12px;
+  border: 2px solid var(--border); border-radius: 14px;
+  background: transparent; color: var(--text-soft);
+  font-size: 15px; cursor: pointer; font-weight: 600;
+  font-family: 'Nunito', sans-serif;
+  transition: all 0.2s;
+}
+button.btn-reset:hover { border-color: #dc2626; color: #dc2626; }
+
+/* ── RESULTADO ── */
+.result {
+  display: none; margin-top: 20px; border-radius: 18px; padding: 28px; line-height: 1.8;
+  animation: fadeSlideIn 0.5s cubic-bezier(0.34, 1.4, 0.64, 1);
+}
+@keyframes fadeSlideIn {
+  0%   { opacity: 0; transform: translateY(18px) scale(0.97); }
+  100% { opacity: 1; transform: translateY(0)    scale(1); }
+}
+.ok     { background: #dcfce7; border-left: 8px solid #16a34a; }
+.info   { background: #dbeafe; border-left: 8px solid #2563eb; }
+.warn   { background: #fef3c7; border-left: 8px solid #d97706; }
+.danger { background: #fee2e2; border-left: 8px solid #dc2626; }
+
+[data-theme="dark"] .ok     { background: rgba(20,83,45,0.4);   }
+[data-theme="dark"] .info   { background: rgba(30,58,138,0.4);  }
+[data-theme="dark"] .warn   { background: rgba(120,53,15,0.4);  }
+[data-theme="dark"] .danger { background: rgba(127,29,29,0.4);  }
+
+.tip {
+  background: var(--tip-bg); border-radius: 14px; padding: 16px; margin-top: 20px;
+}
+.alert {
+  margin-top: 22px; background: #111827; color: white;
+  padding: 18px; border-radius: 14px; font-weight: bold;
+}
+[data-theme="dark"] .alert { background: rgba(0,0,0,0.5); border: 1px solid var(--border); }
+
+/* ── MODO INVERSO ── */
+.modo-tabs {
+  display: flex; gap: 10px; margin-bottom: 20px;
+}
+.modo-tab {
+  flex: 1; padding: 10px; border-radius: 12px;
+  border: 2px solid var(--border);
+  background: transparent; color: var(--text-soft);
+  font-size: 14px; font-weight: 700; cursor: pointer;
+  font-family: 'Nunito', sans-serif;
+  transition: all 0.2s;
+}
+.modo-tab.activo {
+  background: var(--verde); color: white;
+  border-color: var(--verde);
+}
+
+/* ── RESULTADO INVERSO ── */
+#resultado-inverso {
+  display: none; margin-top: 20px;
+}
+.inverso-card {
+  border-radius: 14px; padding: 18px; margin-top: 12px;
+  background: var(--tip-bg); border-left: 6px solid var(--verde);
+  animation: fadeSlideIn 0.4s ease;
+}
+.inverso-card strong { display: block; font-size: 15px; margin-bottom: 6px; color: var(--text); }
+.inverso-card span { color: var(--text-soft); font-size: 14px; line-height: 1.7; }
+
+/* ── HISTORIAL ── */
+#historial-wrap { display: none; }
+#historial-lista { display: flex; flex-direction: column; gap: 10px; margin-top: 0; }
+.hist-item {
+  display: flex; align-items: flex-start; justify-content: space-between;
+  background: var(--tip-bg); border-radius: 12px; padding: 12px 16px;
+  font-size: 14px; color: var(--text);
+  border-left: 5px solid #ccc;
+  animation: fadeSlideIn 0.3s ease;
+}
+.hist-item.ok-h     { border-color: #16a34a; }
+.hist-item.warn-h   { border-color: #d97706; }
+.hist-item.info-h   { border-color: #2563eb; }
+.hist-item.danger-h { border-color: #dc2626; }
+.hist-notas { font-size: 12px; color: var(--text-soft); margin-top: 3px; }
+.hist-materia { font-size: 12px; color: var(--verde); font-weight: 700; margin-top: 2px; }
+
+/* ── MATERIAS GUARDADAS ── */
+#materias-wrap { display: none; }
+.materias-lista { display: flex; flex-direction: column; gap: 10px; margin-top: 0; }
+.materia-item {
+  display: flex; align-items: center; justify-content: space-between;
+  background: var(--tip-bg); border-radius: 14px; padding: 14px 18px;
+  font-size: 14px; color: var(--text);
+  border-left: 5px solid var(--verde);
+  animation: fadeSlideIn 0.3s ease;
+  gap: 10px;
+}
+.materia-info { flex: 1; }
+.materia-nombre { font-weight: 800; font-size: 15px; color: var(--text); }
+.materia-cond { font-size: 13px; color: var(--text-soft); margin-top: 3px; }
+.materia-prom { font-size: 13px; font-weight: 700; color: var(--verde); margin-top: 2px; }
+.btn-borrar-mat {
+  background: none; border: none; cursor: pointer;
+  font-size: 18px; padding: 4px 8px; border-radius: 8px;
+  color: var(--text-soft); transition: color 0.2s;
+  font-family: 'Nunito', sans-serif;
+}
+.btn-borrar-mat:hover { color: #dc2626; }
+.btn-guardar {
+  width: 100%; margin-top: 12px; padding: 12px;
+  border: 2px solid var(--verde); border-radius: 14px;
+  background: transparent; color: var(--verde);
+  font-size: 15px; cursor: pointer; font-weight: 700;
+  font-family: 'Nunito', sans-serif;
+  transition: all 0.2s;
+  display: none;
+}
+.btn-guardar:hover { background: var(--verde); color: white; }
+.promedio-general {
+  margin-top: 14px; padding: 14px 18px;
+  background: rgba(0,103,82,0.1); border-radius: 12px;
+  font-size: 14px; font-weight: 700; color: var(--verde);
+  text-align: center;
+}
+
+/* ── CRÉDITO ── */
+#credito {
+  position: fixed; bottom: 16px; right: 20px; z-index: 10;
+  background: rgba(0,103,82,0.88); color: white;
+  font-size: 12px; font-family: 'Nunito', sans-serif;
+  padding: 8px 14px; border-radius: 20px;
+  backdrop-filter: blur(6px); -webkit-backdrop-filter: blur(6px);
+  box-shadow: 0 4px 14px rgba(0,0,0,0.2);
+  letter-spacing: 0.3px; line-height: 1.5; text-align: right;
+  pointer-events: none;
+}
+
+/* ── ALARMA ROJA ── */
+#alarma-roja {
+  display: none;
+  position: fixed; top: 0; left: 0; right: 0;
+  z-index: 200;
+  background: #dc2626;
+  color: white;
+  text-align: center;
+  padding: 10px 20px;
+  font-weight: 800;
+  font-size: 15px;
+  letter-spacing: 0.5px;
+  animation: parpadear 1.2s ease infinite;
+  font-family: 'Nunito', sans-serif;
+}
+@keyframes parpadear {
+  0%, 100% { background: #dc2626; }
+  50%       { background: #991b1b; }
+}
+
+/* ── SEPARADOR ── */
+.sep {
+  height: 1px; background: var(--border); margin: 20px 0; opacity: 0.5;
+}
+</style>
+</head>
+<body>
+
+<!-- Alarma roja -->
+<div id="alarma-roja">🚨 LIBRE POR NOTA — Revisá tus notas y considerá tus opciones</div>
+
+<!-- Splash -->
+<div id="splash">
+  <div class="logo-siglo21">
+    <div class="numero"><span>2</span><span>1</span></div>
+  </div>
+</div>
+
+<!-- Fondo animado -->
+<div id="bg-canvas"></div>
+<!-- Flash de color -->
+<div id="bg-flash"></div>
+
+<!-- Toggle modo oscuro -->
+<button id="dark-toggle" onclick="toggleDark()">🌙 <span id="toggle-label">Modo oscuro</span></button>
+
+<!-- Crédito -->
+<div id="credito">Creado por <strong>Gerónimo</strong><br>Tutor CAU Neuquén</div>
+
+<div class="container">
+
+  <div class="card">
+    <h1>Simulador de Condición</h1>
+    <p class="subtitle">
+      Ingresá tus notas para ver tu condición, qué te falta para mejorarla, y guardá el cierre de tus materias.
+    </p>
+  </div>
+
+  <div class="card">
+
+    <!-- Tabs de modo -->
+    <div class="modo-tabs">
+      <button class="modo-tab activo" id="tab-normal" onclick="cambiarModo('normal')">📊 Ver mi condición</button>
+      <button class="modo-tab" id="tab-inverso" onclick="cambiarModo('inverso')">🎯 ¿Qué necesito?</button>
+    </div>
+
+    <label>Tipo de materia</label>
+    <select id="tipoMateria" onchange="resetearNotas()">
+      <option value="MEC">MEC — TP múltiple opción</option>
+      <option value="MIA">MIA — Materia bimestral con TP a desarrollar</option>
+      <option value="MIP">MIP — Materia cuatrimestral con TP a desarrollar</option>
+    </select>
+
+    <label>Nombre de la materia <span style="font-weight:400;color:var(--text-soft)">(opcional)</span></label>
+    <input type="text" id="nombreMateria" placeholder="Ej: Economía General, Derecho Empresarial..." />
+
+    <div class="sep"></div>
+
+    <label>TP 1</label>
+    <div class="input-wrap">
+      <input type="number" id="tp1" min="1" max="10" oninput="onNotaInput(this)" onkeydown="return !(['e','E','-','+','.'].includes(event.key))" />
+      <span class="input-badge" id="badge-tp1"></span>
+    </div>
+
+    <label>TP 2</label>
+    <div class="input-wrap">
+      <input type="number" id="tp2" min="1" max="10" oninput="onNotaInput(this)" onkeydown="return !(['e','E','-','+','.'].includes(event.key))" />
+      <span class="input-badge" id="badge-tp2"></span>
+    </div>
+
+    <label>TP 3</label>
+    <div class="input-wrap">
+      <input type="number" id="tp3" min="1" max="10" oninput="onNotaInput(this)" onkeydown="return !(['e','E','-','+','.'].includes(event.key))" />
+      <span class="input-badge" id="badge-tp3"></span>
+    </div>
+
+    <label>TP 4</label>
+    <div class="input-wrap">
+      <input type="number" id="tp4" min="1" max="10" oninput="onNotaInput(this)" onkeydown="return !(['e','E','-','+','.'].includes(event.key))" />
+      <span class="input-badge" id="badge-tp4"></span>
+    </div>
+
+    <label>Parcial 1</label>
+    <div class="input-wrap">
+      <input type="number" id="p1" min="1" max="10" oninput="onNotaInput(this)" onkeydown="return !(['e','E','-','+','.'].includes(event.key))" />
+      <span class="input-badge" id="badge-p1"></span>
+    </div>
+
+    <label>Parcial 2</label>
+    <div class="input-wrap">
+      <input type="number" id="p2" min="1" max="10" oninput="onNotaInput(this)" onkeydown="return !(['e','E','-','+','.'].includes(event.key))" />
+      <span class="input-badge" id="badge-p2"></span>
+    </div>
+
+    <!-- Modo normal -->
+    <div id="panel-normal">
+      <button class="btn-calcular" onclick="calcular()">Calcular condición</button>
+      <button class="btn-reset" onclick="resetearNotas()">🗑 Borrar notas</button>
+      <div id="resultado" class="result"></div>
+      <button class="btn-guardar" id="btn-guardar" onclick="guardarMateria()">💾 Guardar cierre de materia</button>
+    </div>
+
+    <!-- Modo inverso -->
+    <div id="panel-inverso" style="display:none;">
+      <button class="btn-calcular" onclick="calcularInverso()">¿Qué nota necesito?</button>
+      <button class="btn-reset" onclick="resetearNotas()">🗑 Borrar notas</button>
+      <div id="resultado-inverso"></div>
+    </div>
+
+  </div>
+
+  <!-- Historial -->
+  <div class="card" id="historial-wrap">
+    <h2>🕓 Historial de simulaciones</h2>
+    <div id="historial-lista"></div>
+  </div>
+
+  <!-- Materias guardadas -->
+  <div class="card" id="materias-wrap">
+    <h2>💾 Materias cerradas</h2>
+    <div class="materias-lista" id="materias-lista"></div>
+    <div id="promedio-general" class="promedio-general" style="display:none;"></div>
+  </div>
+
+</div>
+
+<script>
+/* ── SPLASH ── */
+window.addEventListener('load', () => {
+  setTimeout(() => {
+    const s = document.getElementById('splash');
+    if (s) s.style.display = 'none';
+  }, 3000);
+});
+
+/* ── SCROLL BLOCK EN INPUTS ── */
+document.addEventListener('DOMContentLoaded', () => {
+  document.querySelectorAll('input[type="number"]').forEach(input => {
+    input.addEventListener('wheel', e => { e.preventDefault(); input.blur(); }, { passive: false });
+  });
+  generarFondo();
+  cargarMaterias();
+});
+
+/* ── MODO OSCURO ── */
+function toggleDark() {
+  const html = document.documentElement;
+  const isDark = html.getAttribute('data-theme') === 'dark';
+  html.setAttribute('data-theme', isDark ? 'light' : 'dark');
+  const emoji = document.getElementById('dark-toggle').childNodes[0];
+  const label = document.getElementById('toggle-label');
+  emoji.textContent = isDark ? '🌙 ' : '☀️ ';
+  label.textContent = isDark ? 'Modo oscuro' : 'Modo claro';
+}
+
+/* ── TABS DE MODO ── */
+let modoActual = 'normal';
+function cambiarModo(modo) {
+  modoActual = modo;
+  document.getElementById('tab-normal').classList.toggle('activo', modo === 'normal');
+  document.getElementById('tab-inverso').classList.toggle('activo', modo === 'inverso');
+  document.getElementById('panel-normal').style.display  = modo === 'normal'  ? '' : 'none';
+  document.getElementById('panel-inverso').style.display = modo === 'inverso' ? '' : 'none';
+}
+
+/* ── FONDO ANIMADO ── */
+function generarFondo() {
+  const canvas = document.getElementById('bg-canvas');
+  for (let i = 0; i < 18; i++) {
+    const size  = 40 + Math.random() * 90;
+    const left  = Math.random() * 100;
+    const dur   = 14 + Math.random() * 22;
+    const delay = -(Math.random() * dur);
+    const rotS  = (Math.random() - 0.5) * 40;
+    const rotE  = rotS + (Math.random() - 0.5) * 30;
+    const maxOp = 0.06 + Math.random() * 0.09;
+
+    const logo = document.createElement('div');
+    logo.className = 'bg-logo';
+    logo.style.cssText = `
+      width:${size}px; height:${size}px; left:${left}%;
+      font-size:${size * 0.55}px;
+      --rot-start:${rotS}deg; --rot-end:${rotE}deg;
+      --max-opacity:${maxOp};
+      animation-duration:${dur}s; animation-delay:${delay}s;
+    `;
+    const num = document.createElement('div');
+    num.className = 'bg-num';
+    num.innerHTML = '<span>2</span><span>1</span>';
+    logo.appendChild(num);
+    canvas.appendChild(logo);
+  }
+}
+
+/* ── FLASH DE FONDO ── */
+function activarFlash(tipo) {
+  // tipo: 'ok' | 'warn' | 'danger' | null
+  const flash = document.getElementById('bg-flash');
+  const alarma = document.getElementById('alarma-roja');
+  flash.className = '';
+  alarma.style.display = 'none';
+  if (tipo === 'ok') {
+    flash.classList.add('active-ok');
+  } else if (tipo === 'warn') {
+    flash.classList.add('active-warn');
+  } else if (tipo === 'danger') {
+    flash.classList.add('active-danger');
+    alarma.style.display = 'block';
+  }
+}
+
+/* ── CONFETTI ── */
+function lanzarConfetti(esDirecta) {
+  const colors = esDirecta
+    ? ['#16a34a', '#22c55e', '#bbf7d0', '#ffd700', '#ffffff']
+    : ['#2563eb', '#60a5fa', '#bfdbfe', '#ffffff'];
+
+  confetti({
+    particleCount: 120,
+    spread: 80,
+    origin: { y: 0.5 },
+    colors,
+    scalar: 1.1
+  });
+  setTimeout(() => confetti({
+    particleCount: 60,
+    spread: 120,
+    origin: { x: 0.1, y: 0.6 },
+    colors
+  }), 350);
+  setTimeout(() => confetti({
+    particleCount: 60,
+    spread: 120,
+    origin: { x: 0.9, y: 0.6 },
+    colors
+  }), 550);
+}
+
+/* ── FEEDBACK EN TIEMPO REAL ── */
+function onNotaInput(input) {
+  const v = Number(input.value);
+  const id = input.id;
+  const badge = document.getElementById('badge-' + id);
+
+  input.classList.remove('nota-baja', 'nota-media', 'nota-buena');
+  badge.classList.remove('visible');
+
+  if (input.value === '') return;
+  if (v > 10) { input.value = 10; }
+  if (v < 1)  { input.value = 1;  }
+
+  const n = Number(input.value);
+  if (n < 5) {
+    input.classList.add('nota-baja');
+    badge.textContent = '❌';
+  } else if (n < 7) {
+    input.classList.add('nota-media');
+    badge.textContent = '⚠️';
+  } else {
+    input.classList.add('nota-buena');
+    badge.textContent = '✅';
+  }
+  badge.classList.add('visible');
+}
+
+/* ── RESET ── */
+function resetearNotas() {
+  ['tp1','tp2','tp3','tp4','p1','p2'].forEach(id => {
+    const el = document.getElementById(id);
+    el.value = '';
+    el.classList.remove('nota-baja','nota-media','nota-buena','pulso-rojo');
+    const badge = document.getElementById('badge-' + id);
+    if (badge) { badge.textContent = ''; badge.classList.remove('visible'); }
+  });
+  const r = document.getElementById('resultado');
+  r.style.display = 'none'; r.innerHTML = '';
+  document.getElementById('resultado-inverso').style.display = 'none';
+  document.getElementById('resultado-inverso').innerHTML = '';
+  document.getElementById('btn-guardar').style.display = 'none';
+  activarFlash(null);
+}
+
+/* ── HISTORIAL ── */
+const historial = [];
+
+function agregarHistorial(condicion, clase, notas, nombreMat) {
+  historial.unshift({
+    condicion, clase, notas, nombreMat,
+    hora: new Date().toLocaleTimeString('es-AR', {hour:'2-digit',minute:'2-digit'})
+  });
+  if (historial.length > 5) historial.pop();
+
+  const lista = document.getElementById('historial-lista');
+  lista.innerHTML = '';
+  historial.forEach(h => {
+    const item = document.createElement('div');
+    item.className = `hist-item ${h.clase}-h`;
+    item.innerHTML = `
+      <div>
+        ${h.nombreMat ? `<div class="hist-materia">📚 ${h.nombreMat}</div>` : ''}
+        <div><strong>${h.condicion}</strong></div>
+        <div class="hist-notas">${h.notas}</div>
+      </div>
+      <div style="font-size:12px;color:var(--text-soft);white-space:nowrap;margin-left:10px">${h.hora}</div>`;
+    lista.appendChild(item);
+  });
+
+  document.getElementById('historial-wrap').style.display = 'block';
+}
+
+/* ── MATERIAS GUARDADAS ── */
+let materiasGuardadas = [];
+
+function cargarMaterias() {
+  try {
+    const data = localStorage.getItem('materias_simulador');
+    if (data) materiasGuardadas = JSON.parse(data);
+    renderizarMaterias();
+  } catch(e) {}
+}
+
+function guardarMateria() {
+  const nombre = document.getElementById('nombreMateria').value.trim() || 'Materia sin nombre';
+  const tp1 = Number(document.getElementById('tp1').value);
+  const tp2 = Number(document.getElementById('tp2').value);
+  const tp3 = Number(document.getElementById('tp3').value);
+  const tp4 = Number(document.getElementById('tp4').value);
+  const p1  = Number(document.getElementById('p1').value);
+  const p2  = Number(document.getElementById('p2').value);
+  const condicion = document.getElementById('resultado').querySelector('h2')?.textContent || '—';
+  const tipo = document.getElementById('tipoMateria').value;
+
+  const promNotas = ((tp1+tp2+tp3+tp4+p1+p2)/6).toFixed(2);
+
+  materiasGuardadas.push({
+    nombre, condicion, tipo,
+    notas: { tp1, tp2, tp3, tp4, p1, p2 },
+    promedio: promNotas,
+    fecha: new Date().toLocaleDateString('es-AR')
+  });
+
+  try {
+    localStorage.setItem('materias_simulador', JSON.stringify(materiasGuardadas));
+  } catch(e) {}
+
+  renderizarMaterias();
+  document.getElementById('btn-guardar').style.display = 'none';
+  document.getElementById('btn-guardar').textContent = '✅ ¡Guardada!';
+  setTimeout(() => {
+    document.getElementById('btn-guardar').textContent = '💾 Guardar cierre de materia';
+  }, 2000);
+}
+
+function borrarMateria(idx) {
+  materiasGuardadas.splice(idx, 1);
+  try { localStorage.setItem('materias_simulador', JSON.stringify(materiasGuardadas)); } catch(e) {}
+  renderizarMaterias();
+}
+
+function renderizarMaterias() {
+  const wrap = document.getElementById('materias-wrap');
+  const lista = document.getElementById('materias-lista');
+  const promDiv = document.getElementById('promedio-general');
+
+  if (materiasGuardadas.length === 0) {
+    wrap.style.display = 'none';
+    return;
+  }
+  wrap.style.display = 'block';
+  lista.innerHTML = '';
+
+  materiasGuardadas.forEach((m, i) => {
+    const item = document.createElement('div');
+    item.className = 'materia-item';
+    item.innerHTML = `
+      <div class="materia-info">
+        <div class="materia-nombre">📚 ${m.nombre}</div>
+        <div class="materia-cond">${m.condicion} · ${m.tipo} · ${m.fecha}</div>
+        <div class="materia-cond">TPs: ${m.notas.tp1}/${m.notas.tp2}/${m.notas.tp3}/${m.notas.tp4} — P: ${m.notas.p1}/${m.notas.p2}</div>
+        <div class="materia-prom">Promedio: ${m.promedio}</div>
+      </div>
+      <button class="btn-borrar-mat" onclick="borrarMateria(${i})" title="Borrar">🗑</button>
+    `;
+    lista.appendChild(item);
+  });
+
+  // Promedio general
+  const sum = materiasGuardadas.reduce((a, m) => a + parseFloat(m.promedio), 0);
+  const prom = (sum / materiasGuardadas.length).toFixed(2);
+  promDiv.style.display = 'block';
+  promDiv.textContent = `📈 Promedio general de ${materiasGuardadas.length} materia${materiasGuardadas.length > 1 ? 's' : ''}: ${prom}`;
+}
+
+/* ── CÁLCULO PRINCIPAL ── */
+function calcular() {
+  const tp1Val = document.getElementById('tp1').value;
+  const tp2Val = document.getElementById('tp2').value;
+  const tp3Val = document.getElementById('tp3').value;
+  const tp4Val = document.getElementById('tp4').value;
+  const p1Val  = document.getElementById('p1').value;
+  const p2Val  = document.getElementById('p2').value;
+
+  const resultado    = document.getElementById('resultado');
+  const tipoMateria  = document.getElementById('tipoMateria').value;
+
+  // Validar que todos estén completos y en rango
+  const rawVals = [tp1Val, tp2Val, tp3Val, tp4Val, p1Val, p2Val];
+  if (rawVals.some(v => v === '' || isNaN(Number(v)) || Number(v) < 1 || Number(v) > 10)) {
+    resultado.style.display = 'block';
+    resultado.className = 'result danger';
+    resultado.innerHTML = '⚠️ Completá todas las notas (entre 1 y 10) antes de calcular.';
+    return;
+  }
+
+  const tp1 = Number(tp1Val), tp2 = Number(tp2Val), tp3 = Number(tp3Val), tp4 = Number(tp4Val);
+  const p1  = Number(p1Val),  p2  = Number(p2Val);
+  const tps = [tp1, tp2, tp3, tp4];
+  const tp4PromocionValido = tp4 >= 7;
+  let tp7 = tps.filter(tp => tp >= 7).length;
+
+  if (tipoMateria === 'MIP') {
+    if (!tp4PromocionValido && tp7 >= 3) tp7 = 0;
+  }
+
+  let html = '', clase = 'info';
+  let condicionLabel = '';
+  let flashTipo = null;
+  let esPromoDirecta = false, esPromoIndirecta = false;
+
+  if (tipoMateria === 'MIP' && tp4 < 5) {
+    clase = 'danger'; condicionLabel = '🚨 Libre por Nota'; flashTipo = 'danger';
+    html = `
+      <h2>🚨 LIBRE POR NOTA</h2>
+      <p>En materias MIP el TP4 es obligatorio.</p>
+      <div class="tip">
+        ❌ Tu TP4 está desaprobado con menos de 5.<br>
+        ❌ No podés acceder a Regularidad.<br>
+        ❌ Tampoco podés acceder a Promoción.
+      </div>
+      <div class="alert">Quedaste Libre por Nota y deberás rendir Final Libre.</div>`;
+
+  } else if (tp7 >= 3) {
+
+    if (p1 >= 7 && p2 >= 7) {
+      clase = 'ok'; condicionLabel = '🎉 Promoción Directa'; flashTipo = 'ok'; esPromoDirecta = true;
+      html = `
+        <h2>🎉 PROMOCIÓN DIRECTA</h2>
+        <p>Tu materia actualmente está en condición de Promoción Directa.</p>
+        <div class="tip">
+          ${tipoMateria==='MIP' ? '📌 En MIP el TP4 debe estar aprobado con 7 o más para promocionar.<br><br>' : ''}
+          ✅ Tenés 3/4 TP con 7 o más.<br>
+          ✅ Ambos parciales con 7 o más.<br>
+          ✅ No rendís final.<br>
+          ✅ La materia queda aprobada.
+        </div>`;
+
+    } else if (tp7 === 4 && p1 >= 5 && p2 >= 5) {
+      clase = 'ok'; condicionLabel = '🎓 Promoción Indirecta'; flashTipo = 'ok'; esPromoIndirecta = true;
+      html = `
+        <h2>🎓 PROMOCIÓN INDIRECTA</h2>
+        <p>Tu materia actualmente está en condición de Promoción Indirecta.</p>
+        <div class="tip">
+          ${tipoMateria==='MIP' ? '📌 En MIP el TP4 debe estar aprobado con 7 o más para promocionar.<br><br>' : ''}
+          ✅ Tenés 4/4 TP con 7 o más.<br>
+          ✅ Ambos parciales con 5 o más.<br>
+          ✅ No rendís final.<br>
+          ✅ La materia queda aprobada.
+        </div>
+        <div class="tip">
+          🚀 ¿Querés intentar Promoción Directa?<br><br>
+          ${((p1>=7&&p2>=5&&p2<7)||(p2>=7&&p1>=5&&p1<7))
+            ? '📘 Te conviene rendir Recuperatorio del parcial que está en 5 o 6.<br>📈 Necesitás sacar 7 o más para pasar a Promoción Directa.'
+            : '📝 Necesitás rendir Integrador.<br>📈 Necesitás sacar 7 o más para llegar a Promoción Directa.'}
+        </div>`;
+
+    } else if ((p1 >= 7 && p2 < 7) || (p2 >= 7 && p1 < 7)) {
+      clase = 'info'; condicionLabel = '📘 Necesitás Recuperatorio'; flashTipo = null;
+      const parcial = p1 < 7 ? 'Parcial 1' : 'Parcial 2';
+      const tieneIndirecta = tp7 === 4;
+      html = `
+        <h2>📘 NECESITÁS RECUPERATORIO</h2>
+        <p>Tenés posibilidades promocionales pero el ${parcial} no alcanza la nota requerida.</p>
+        <div class="tip">
+          📌 Necesitás recuperar el ${parcial}.
+        </div>
+        ${tieneIndirecta ? '<div class="tip">🎓 Para Promoción Indirecta necesitás mínimo 5.</div>' : ''}
+        <div class="tip">🎉 Para Promoción Directa necesitás 7 o más.</div>
+        <div class="alert">Si desaprobás el Recuperatorio quedarías Libre por Nota.</div>`;
+
+    } else {
+      clase = 'warn'; condicionLabel = '📝 Necesitás Integrador'; flashTipo = 'warn';
+      const puedeIndirecta = tp7 === 4;
+      html = `
+        <h2>📝 NECESITÁS INTEGRADOR</h2>
+        <p>Tenés base promocional pero tus parciales no alcanzan la nota necesaria.</p>
+        <div class="tip">
+          ✅ Tenés ${tp7}/4 TP con 7 o más.<br>
+          📌 Necesitás rendir Integrador.
+        </div>
+        ${puedeIndirecta ? '<div class="tip">🎓 Para Promoción Indirecta necesitás mínimo 5.</div>' : ''}
+        <div class="tip">🎉 Para Promoción Directa necesitás 7 o más.</div>
+        <div class="alert">Si desaprobás el Integrador quedarías Libre por Nota.</div>`;
+    }
+
+  } else if (tps.filter(tp => tp >= 5).length >= 3) {
+
+    if (p1 >= 5 && p2 >= 5) {
+      clase = 'warn'; condicionLabel = '📝 Regularidad'; flashTipo = 'warn';
+      html = `
+        <h2>📝 REGULARIDAD</h2>
+        <p>Actualmente quedaste Regular en la materia.</p>
+        <div class="tip">
+          ${tipoMateria==='MIP' ? '📌 En MIP el TP4 debe estar aprobado con 5 o más para Regularizar.<br><br>' : ''}
+          📚 Debés rendir Final Regular.<br>
+          📅 18 meses.<br>
+          📌 3 intentos.<br>
+          📌 30 preguntas.<br>
+          ✅ Se aprueba con 4.
+        </div>
+        <div class="alert">Desaprobar el Final Regular obliga a recursar.</div>`;
+
+    } else if ((p1 >= 5 && p2 < 5) || (p2 >= 5 && p1 < 5)) {
+      clase = 'info'; condicionLabel = '📘 Necesitás Recuperatorio'; flashTipo = null;
+      const parcial = p1 < 5 ? 'Parcial 1' : 'Parcial 2';
+      html = `
+        <h2>📘 NECESITÁS RECUPERATORIO</h2>
+        <p>Necesitás recuperar el ${parcial}.</p>
+        <div class="tip">
+          📈 Necesitás sacar mínimo 5.<br>
+          📝 Si aprobás quedarías Regular.
+        </div>
+        <div class="alert">Si desaprobás quedarías Libre por Nota.</div>`;
+
+    } else {
+      clase = 'warn'; condicionLabel = '📝 Necesitás Integrador'; flashTipo = 'warn';
+      html = `
+        <h2>📝 NECESITÁS INTEGRADOR</h2>
+        <p>Tus parciales no alcanzan la nota necesaria para Regularizar.</p>
+        <div class="tip">
+          📈 Necesitás sacar mínimo 5.<br>
+          📝 Si aprobás quedarías Regular.
+        </div>
+        <div class="alert">Si desaprobás quedarías Libre por Nota.</div>`;
+    }
+
+  } else {
+    clase = 'danger'; condicionLabel = '🚨 Libre por Nota'; flashTipo = 'danger';
+    html = `
+      <h2>🚨 LIBRE POR NOTA</h2>
+      <p>Actualmente quedaste Libre por Nota.</p>
+      <div class="tip">
+        📚 Final Libre.<br>
+        📅 3 meses.<br>
+        📌 1 intento.<br>
+        📌 50 preguntas.<br>
+        ✅ Se aprueba con 4.
+      </div>
+      <div class="alert">Desaprobar obliga a recursar.</div>`;
+  }
+
+  // Aplicar resultado
+  resultado.style.display = 'none';
+  resultado.className = 'result ' + clase;
+  resultado.innerHTML = html;
+  void resultado.offsetWidth;
+  resultado.style.display = 'block';
+
+  // Flash de fondo
+  activarFlash(flashTipo);
+
+  // Efecto pulso rojo en inputs si es libre
+  if (flashTipo === 'danger') {
+    ['tp1','tp2','tp3','tp4','p1','p2'].forEach(id => {
+      document.getElementById(id).classList.add('pulso-rojo');
+    });
+  } else {
+    ['tp1','tp2','tp3','tp4','p1','p2'].forEach(id => {
+      document.getElementById(id).classList.remove('pulso-rojo');
+    });
+  }
+
+  // Confetti
+  if (esPromoDirecta || esPromoIndirecta) {
+    setTimeout(() => lanzarConfetti(esPromoDirecta), 300);
+  }
+
+  // Mostrar botón de guardar
+  document.getElementById('btn-guardar').style.display = 'block';
+
+  // Historial
+  const nombreMat = document.getElementById('nombreMateria').value.trim();
+  const notasStr = `TPs: ${tp1}/${tp2}/${tp3}/${tp4} — Parciales: ${p1}/${p2} — ${tipoMateria}`;
+  const claseHist = clase === 'ok' ? 'ok' : clase === 'warn' ? 'warn' : clase === 'info' ? 'info' : 'danger';
+  agregarHistorial(condicionLabel, claseHist, notasStr, nombreMat);
+
+  resultado.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+}
+
+/* ── CÁLCULO INVERSO ── */
+function calcularInverso() {
+  const tp1Val = document.getElementById('tp1').value;
+  const tp2Val = document.getElementById('tp2').value;
+  const tp3Val = document.getElementById('tp3').value;
+  const tp4Val = document.getElementById('tp4').value;
+  const p1Val  = document.getElementById('p1').value;
+  const p2Val  = document.getElementById('p2').value;
+  const tipo   = document.getElementById('tipoMateria').value;
+
+  const toNum = v => v === '' ? null : Number(v);
+  const tp1 = toNum(tp1Val), tp2 = toNum(tp2Val), tp3 = toNum(tp3Val), tp4 = toNum(tp4Val);
+  const p1  = toNum(p1Val),  p2  = toNum(p2Val);
+
+  const divRes = document.getElementById('resultado-inverso');
+  divRes.style.display = 'block';
+  divRes.innerHTML = '';
+
+  const tps = [tp1, tp2, tp3, tp4];
+  const tpsIngresados = tps.filter(v => v !== null);
+
+  let bloques = [];
+
+  // ─ REGULARIDAD ─
+  {
+    const tpsAprobados = tps.filter(v => v !== null && v >= 5).length;
+    const tpsFaltantes = tps.filter(v => v === null).length;
+    const necesitaTP = Math.max(0, 3 - tpsAprobados);
+    let msgs = [];
+
+    if (tipo === 'MIP' && tp4 !== null && tp4 < 5) {
+      msgs.push('❌ Tu TP4 está desaprobado. En materias MIP el TP4 necesita 5 o más para poder regularizar.');
+    } else {
+      // TPs
+      if (necesitaTP > 0) {
+        if (tpsFaltantes >= necesitaTP) {
+          msgs.push(`📝 Necesitás al menos ${necesitaTP} TP más con nota de 5 o más.`);
+        } else {
+          msgs.push(`❌ No podés alcanzar Regularidad: te faltan ${necesitaTP} TPs aprobados pero solo quedan ${tpsFaltantes} sin cargar.`);
+        }
+      } else {
+        msgs.push('✅ TPs: ya tenés suficientes para regularizar.');
+      }
+      // Parciales
+      if (p1 === null && p2 === null) {
+        msgs.push('📝 Necesitás ambos parciales con nota de 5 o más.');
+      } else if (p1 === null) {
+        msgs.push(p2 >= 5 ? '✅ Parcial 2 aprobado. Necesitás el Parcial 1 con 5 o más.' : `📝 El Parcial 2 (${p2}) necesita Recuperatorio con 5 o más. También te falta el Parcial 1 con 5 o más.`);
+      } else if (p2 === null) {
+        msgs.push(p1 >= 5 ? '✅ Parcial 1 aprobado. Necesitás el Parcial 2 con 5 o más.' : `📝 El Parcial 1 (${p1}) necesita Recuperatorio con 5 o más. También te falta el Parcial 2 con 5 o más.`);
+      } else {
+        if (p1 < 5 && p2 < 5) msgs.push(`📝 El Parcial 1 (${p1}) y el Parcial 2 (${p2}) necesitan Recuperatorio con 5 o más.`);
+        else if (p1 < 5) msgs.push(`📝 El Parcial 1 (${p1}) necesita Recuperatorio. Tenés que sacar 5 o más.`);
+        else if (p2 < 5) msgs.push(`📝 El Parcial 2 (${p2}) necesita Recuperatorio. Tenés que sacar 5 o más.`);
+        else msgs.push('✅ Ambos parciales aprobados para Regularidad.');
+      }
+    }
+
+    bloques.push({ titulo: '📝 Para Regularidad', msgs });
+  }
+
+  // ─ PROMO INDIRECTA ─
+  {
+    const tps7 = tps.filter(v => v !== null && v >= 7).length;
+    const tpsFaltantes = tps.filter(v => v === null).length;
+    const necesitaTP7 = Math.max(0, 4 - tps7);
+    let msgs = [];
+
+    if (tipo === 'MIP' && tp4 !== null && tp4 < 7) {
+      msgs.push(`❌ En materias MIP el TP4 necesita 7 o más para promocionar. Tu TP4 está en ${tp4}.`);
+    }
+
+    if (necesitaTP7 > 0) {
+      if (tpsFaltantes >= necesitaTP7) {
+        msgs.push(`📝 Necesitás ${necesitaTP7} TP más con nota de 7 o más.`);
+      } else {
+        msgs.push(`❌ No podés alcanzar Promoción Indirecta: te faltan ${necesitaTP7} TPs con 7 o más pero solo quedan ${tpsFaltantes} sin cargar.`);
+      }
+    } else {
+      msgs.push('✅ TPs: ya tenés suficientes para Promoción Indirecta.');
+    }
+
+    if (p1 === null && p2 === null) {
+      msgs.push('📝 Necesitás ambos parciales con nota de 5 o más.');
+    } else if (p1 === null) {
+      msgs.push(p2 >= 5 ? '✅ Parcial 2 aprobado. Necesitás el Parcial 1 con 5 o más.' : `📝 El Parcial 2 (${p2}) necesita 5 o más. También te falta el Parcial 1 con 5 o más.`);
+    } else if (p2 === null) {
+      msgs.push(p1 >= 5 ? '✅ Parcial 1 aprobado. Necesitás el Parcial 2 con 5 o más.' : `📝 El Parcial 1 (${p1}) necesita 5 o más. También te falta el Parcial 2 con 5 o más.`);
+    } else {
+      if (p1 < 5 && p2 < 5) msgs.push(`📝 Ambos parciales necesitan 5 o más. El Parcial 1 está en ${p1} y el Parcial 2 en ${p2}.`);
+      else if (p1 < 5) msgs.push(`📝 El Parcial 1 (${p1}) necesita Recuperatorio con 5 o más.`);
+      else if (p2 < 5) msgs.push(`📝 El Parcial 2 (${p2}) necesita Recuperatorio con 5 o más.`);
+      else msgs.push('✅ Ambos parciales aprobados para Promoción Indirecta.');
+    }
+
+    bloques.push({ titulo: '🎓 Para Promoción Indirecta', msgs });
+  }
+
+  // ─ PROMO DIRECTA ─
+  {
+    const tps7 = tps.filter(v => v !== null && v >= 7).length;
+    const tpsFaltantes = tps.filter(v => v === null).length;
+    const necesitaTP7 = Math.max(0, 3 - tps7);
+    let msgs = [];
+
+    if (tipo === 'MIP' && tp4 !== null && tp4 < 7) {
+      msgs.push(`❌ En materias MIP el TP4 necesita 7 o más para promocionar. Tu TP4 está en ${tp4}.`);
+    }
+
+    if (necesitaTP7 > 0) {
+      if (tpsFaltantes >= necesitaTP7) {
+        msgs.push(`📝 Necesitás ${necesitaTP7} TP más con nota de 7 o más.`);
+      } else {
+        msgs.push(`❌ No podés alcanzar Promoción Directa: te faltan ${necesitaTP7} TPs con 7 o más pero solo quedan ${tpsFaltantes} sin cargar.`);
+      }
+    } else {
+      msgs.push('✅ TPs: ya tenés suficientes para Promoción Directa.');
+    }
+
+    if (p1 === null && p2 === null) {
+      msgs.push('📝 Necesitás ambos parciales con nota de 7 o más.');
+    } else if (p1 === null) {
+      msgs.push(p2 >= 7 ? '✅ Parcial 2 aprobado. Necesitás el Parcial 1 con 7 o más.' : `📝 El Parcial 2 (${p2}) necesita 7 o más. También te falta el Parcial 1 con 7 o más.`);
+    } else if (p2 === null) {
+      msgs.push(p1 >= 7 ? '✅ Parcial 1 aprobado. Necesitás el Parcial 2 con 7 o más.' : `📝 El Parcial 1 (${p1}) necesita 7 o más. También te falta el Parcial 2 con 7 o más.`);
+    } else {
+      if (p1 < 7 && p2 < 7) msgs.push(`📝 Ambos parciales necesitan 7 o más. El Parcial 1 está en ${p1} y el Parcial 2 en ${p2}.`);
+      else if (p1 < 7) msgs.push(`📝 El Parcial 1 (${p1}) necesita Recuperatorio o Integrador con 7 o más.`);
+      else if (p2 < 7) msgs.push(`📝 El Parcial 2 (${p2}) necesita Recuperatorio o Integrador con 7 o más.`);
+      else msgs.push('✅ Ambos parciales aprobados para Promoción Directa.');
+    }
+
+    bloques.push({ titulo: '🎉 Para Promoción Directa', msgs });
+  }
+
+  // Renderizar bloques
+  bloques.forEach(b => {
+    const div = document.createElement('div');
+    div.className = 'inverso-card';
+    div.innerHTML = `<strong>${b.titulo}</strong><span>${b.msgs.join('<br>')}</span>`;
+    divRes.appendChild(div);
+  });
+
+  divRes.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+}
+</script>
+</body>
+</html>

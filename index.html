@@ -847,24 +847,53 @@ function calcular() {
         </div>
         <div class="tip">
           🚀 ¿Querés intentar Promoción Directa?<br><br>
-          ${((p1>=7&&p2>=5&&p2<7)||(p2>=7&&p1>=5&&p1<7))
-            ? '📘 Te conviene rendir Recuperatorio del parcial que está en 5 o 6.<br>📈 Necesitás sacar 7 o más para pasar a Promoción Directa.'
-            : '📝 Necesitás rendir Integrador.<br>📈 Necesitás sacar 7 o más para llegar a Promoción Directa.'}
+          ${(p1 >= 5 && p1 < 7 && p2 >= 7)
+            ? `📘 El Parcial 1 está en ${p1}. Rendí el Recuperatorio del Parcial 1 y sacá 7 o más para pasar a Promoción Directa.`
+            : (p2 >= 5 && p2 < 7 && p1 >= 7)
+            ? `📘 El Parcial 2 está en ${p2}. Rendí el Recuperatorio del Parcial 2 y sacá 7 o más para pasar a Promoción Directa.`
+            : (p1 >= 5 && p1 < 7 && p2 >= 5 && p2 < 7)
+            ? `📘 El Parcial 1 está en ${p1} y el Parcial 2 en ${p2}. Necesitás rendir el Integrador y sacar 7 o más para pasar a Promoción Directa.`
+            : '📝 Necesitás rendir el Integrador y sacar 7 o más para llegar a Promoción Directa.'}
         </div>`;
 
     } else if ((p1 >= 7 && p2 < 7) || (p2 >= 7 && p1 < 7)) {
+      // Un parcial con 7+ y el otro entre 1-6
       clase = 'info'; condicionLabel = '📘 Necesitás Recuperatorio'; flashTipo = null;
       const parcial = p1 < 7 ? 'Parcial 1' : 'Parcial 2';
+      const notaParcialBajo = p1 < 7 ? p1 : p2;
       const tieneIndirecta = tp7 === 4;
       html = `
         <h2>📘 NECESITÁS RECUPERATORIO</h2>
         <p>Tenés posibilidades promocionales pero el ${parcial} no alcanza la nota requerida.</p>
         <div class="tip">
-          📌 Necesitás recuperar el ${parcial}.
+          📌 Necesitás recuperar el ${parcial} (nota actual: ${notaParcialBajo}).
         </div>
-        ${tieneIndirecta ? '<div class="tip">🎓 Para Promoción Indirecta necesitás mínimo 5.</div>' : ''}
-        <div class="tip">🎉 Para Promoción Directa necesitás 7 o más.</div>
+        ${tieneIndirecta && notaParcialBajo < 5 ? `<div class="tip">🎓 Si sacás 5 o más en el Recuperatorio del ${parcial} llegarías a Promoción Indirecta.</div>` : ''}
+        ${tieneIndirecta && notaParcialBajo >= 5 ? `<div class="tip">🎓 El ${parcial} ya está aprobado; si sacás 7 o más en el Recuperatorio pasás a Promoción Directa.</div>` : ''}
+        ${!tieneIndirecta ? `<div class="tip">🎉 Si sacás 7 o más en el Recuperatorio del ${parcial}, con tus 3 TPs de 7 o más podés acceder a Promoción Directa.</div>` : '<div class="tip">🎉 Para Promoción Directa necesitás sacar 7 o más en el Recuperatorio.</div>'}
         <div class="alert">Si desaprobás el Recuperatorio quedarías Libre por Nota.</div>`;
+
+    } else if ((p1 >= 5 && p2 < 5) || (p2 >= 5 && p1 < 5)) {
+      // Un parcial aprobado y el otro desaprobado, pero con base promocional (tp7>=3)
+      // → el camino es Integrador, no Recuperatorio
+      clase = 'warn'; condicionLabel = '📝 Necesitás Integrador'; flashTipo = 'warn';
+      const parcialBajo2 = p1 < 5 ? 'Parcial 1' : 'Parcial 2';
+      const parcialOk2   = p1 >= 5 ? 'Parcial 1' : 'Parcial 2';
+      const notaBaja2    = p1 < 5 ? p1 : p2;
+      const notaOk2      = p1 >= 5 ? p1 : p2;
+      const puedeIndirecta2 = tp7 === 4;
+      html = `
+        <h2>📝 NECESITÁS INTEGRADOR</h2>
+        <p>Tenés base promocional. El Integrador reemplaza ambos parciales.</p>
+        <div class="tip">
+          📌 ${parcialOk2}: ${notaOk2} ✅<br>
+          📌 ${parcialBajo2}: ${notaBaja2} ❌<br><br>
+          ✅ Tenés ${tp7}/4 TPs con 7 o más.<br>
+          📝 Rendí el Integrador — reemplaza los dos parciales.
+        </div>
+        ${puedeIndirecta2 ? '<div class="tip">🎓 Para Promoción Indirecta necesitás sacar 5 o más en el Integrador.</div>' : ''}
+        <div class="tip">🎉 Para Promoción Directa necesitás sacar 7 o más en el Integrador.</div>
+        <div class="alert">Si desaprobás el Integrador quedarías Libre por Nota.</div>`;
 
     } else {
       clase = 'warn'; condicionLabel = '📝 Necesitás Integrador'; flashTipo = 'warn';
@@ -876,8 +905,8 @@ function calcular() {
           ✅ Tenés ${tp7}/4 TP con 7 o más.<br>
           📌 Necesitás rendir Integrador.
         </div>
-        ${puedeIndirecta ? '<div class="tip">🎓 Para Promoción Indirecta necesitás mínimo 5.</div>' : ''}
-        <div class="tip">🎉 Para Promoción Directa necesitás 7 o más.</div>
+        ${puedeIndirecta ? '<div class="tip">🎓 Para Promoción Indirecta necesitás sacar 5 o más en el Integrador.</div>' : ''}
+        <div class="tip">🎉 Para Promoción Directa necesitás sacar 7 o más en el Integrador.</div>
         <div class="alert">Si desaprobás el Integrador quedarías Libre por Nota.</div>`;
     }
 
@@ -905,8 +934,7 @@ function calcular() {
         <h2>📘 NECESITÁS RECUPERATORIO</h2>
         <p>Necesitás recuperar el ${parcial}.</p>
         <div class="tip">
-          📈 Necesitás sacar mínimo 5.<br>
-          📝 Si aprobás quedarías Regular.
+          📈 Necesitás sacar 5 o más para quedar Regular.
         </div>
         <div class="alert">Si desaprobás quedarías Libre por Nota.</div>`;
 
@@ -916,8 +944,7 @@ function calcular() {
         <h2>📝 NECESITÁS INTEGRADOR</h2>
         <p>Tus parciales no alcanzan la nota necesaria para Regularizar.</p>
         <div class="tip">
-          📈 Necesitás sacar mínimo 5.<br>
-          📝 Si aprobás quedarías Regular.
+          📈 Necesitás sacar 5 o más en el Integrador para quedar Regular.
         </div>
         <div class="alert">Si desaprobás quedarías Libre por Nota.</div>`;
     }
